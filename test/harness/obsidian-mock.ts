@@ -253,6 +253,7 @@ export class Modal {
 		this.onClose();
 	}
 
+	onOpen(): void {}
 	onClose(): void {}
 }
 

@@ -75,9 +75,14 @@ export class BridgeManager {
 			throw new Error(`Not a git repository: ${bridge.repoPath}`);
 		}
 
+		// Validate branch contains no shell metacharacters before interpolation
+		if (!/^[a-zA-Z0-9._\-/]+$/.test(bridge.branch)) {
+			throw new Error(`Invalid branch name: "${bridge.branch}"`);
+		}
+
 		try {
 			const { stdout, stderr } = await execAsync(
-				`git -C "${bridge.repoPath}" pull origin ${bridge.branch}`,
+				`git -C "${bridge.repoPath}" pull origin "${bridge.branch}"`,
 				{ timeout: 30000 }
 			);
 			console.log(`Vault Bridges: Pulled "${bridge.name}":`, stdout || stderr);
