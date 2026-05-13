@@ -1,0 +1,17 @@
+.vault-bridges-description {
+	color: var(--text-muted);
+	margin-bottom: 1em;
+}
+
+.vault-bridges-empty {
+	color: var(--text-muted);
+	font-style: italic;
+}
+
+.vault-bridges-badge {
+	font-size: 0.85em;
+}
+
+.vault-bridges-status-bar {
+	font-size: var(--font-ui-small);
+}
