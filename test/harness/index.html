@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vault Bridges — UI Harness</title>
+
+  <style>
+    :root {
+      --background-primary: #1e1e1e;
+      --background-secondary: #161616;
+      --background-secondary-alt: #252525;
+      --background-modifier-border: #3a3a3a;
+      --background-modifier-hover: rgba(255,255,255,0.06);
+      --background-modifier-form-field: rgba(0,0,0,0.25);
+      --text-normal: #dcddde;
+      --text-muted: #999;
+      --text-faint: #555;
+      --text-on-accent: #fff;
+      --text-error: #e06c75;
+      --interactive-accent: #7c3aed;
+      --interactive-accent-hover: #6d28d9;
+      --interactive-normal: #2a2a2a;
+      --interactive-hover: #303030;
+      --font-ui-small: 13px;
+      --font-ui-smaller: 11px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background: #111;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+      color: var(--text-normal);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    /* ── Obsidian window chrome ──────────────────────────────────────────── */
+    .mock-window {
+      width: 860px;
+      height: 620px;
+      background: var(--background-primary);
+      border-radius: 10px;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Title bar ───────────────────────────────────────────────────────── */
+    .mock-titlebar {
+      height: 38px;
+      background: var(--background-secondary);
+      border-bottom: 1px solid var(--background-modifier-border);
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .mock-titlebar-dot {
+      width: 12px; height: 12px; border-radius: 50%;
+    }
+    .mock-titlebar-dot:nth-child(1) { background: #ff5f57; }
+    .mock-titlebar-dot:nth-child(2) { background: #febc2e; }
+    .mock-titlebar-dot:nth-child(3) { background: #28c840; }
+    .mock-titlebar-title {
+      flex: 1; text-align: center;
+      font-size: 12px; color: var(--text-muted);
+    }
+
+    /* ── Settings modal layout ───────────────────────────────────────────── */
+    .mock-modal {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* Left sidebar — plugin list */
+    .mock-sidebar {
+      width: 220px;
+      background: var(--background-secondary);
+      border-right: 1px solid var(--background-modifier-border);
+      flex-shrink: 0;
+      padding: 12px 0;
+      overflow-y: auto;
+    }
+    .mock-sidebar-section {
+      padding: 4px 12px 2px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-faint);
+      font-weight: 600;
+    }
+    .mock-sidebar-item {
+      padding: 6px 16px;
+      font-size: 13px;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-radius: 4px;
+      margin: 0 4px;
+    }
+    .mock-sidebar-item:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+    .mock-sidebar-item.active {
+      background: var(--interactive-accent);
+      color: var(--text-on-accent);
+    }
+
+    /* Right content area */
+    .mock-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0;
+    }
+
+    /* ── Obsidian settings tab content ───────────────────────────────────── */
+    .vertical-tab-content {
+      padding: 16px 32px 32px;
+    }
+
+    .vertical-tab-content h2 {
+      font-size: 20px;
+      font-weight: 600;
+      margin: 0 0 8px;
+      color: var(--text-normal);
+    }
+
+    .vertical-tab-content h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin: 24px 0 4px;
+    }
+
+    .vault-bridges-description {
+      color: var(--text-muted);
+      font-size: 13px;
+      margin: 0 0 12px;
+      line-height: 1.5;
+    }
+
+    .vault-bridges-empty {
+      color: var(--text-faint);
+      font-style: italic;
+      font-size: 13px;
+      padding: 8px 0;
+    }
+
+    /* ── Setting item ────────────────────────────────────────────────────── */
+    .setting-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-top: 1px solid var(--background-modifier-border);
+      gap: 16px;
+    }
+    .setting-item:first-of-type { border-top: none; }
+
+    .setting-item-heading {
+      padding-top: 20px;
+      border-top: none;
+    }
+    .setting-item-heading .setting-item-name {
+      font-weight: 600;
+      font-size: 15px;
+      color: var(--text-normal);
+    }
+
+    .setting-item-info { flex: 1; min-width: 0; }
+
+    .setting-item-name {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-normal);
+      margin-bottom: 2px;
+    }
+
+    .setting-item-description {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.4;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .setting-item-control {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    /* ── Buttons ─────────────────────────────────────────────────────────── */
+    button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 5px;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      font-family: inherit;
+      transition: background 0.1s;
+      background: var(--interactive-normal);
+      color: var(--text-normal);
+      min-height: 28px;
+    }
+    button:hover { background: var(--interactive-hover); }
+
+    button.mod-cta {
+      background: var(--interactive-accent);
+      color: var(--text-on-accent);
+    }
+    button.mod-cta:hover { background: var(--interactive-accent-hover); }
+
+    button.mod-warning {
+      background: transparent;
+      color: var(--text-error);
+      border: 1px solid rgba(224, 108, 117, 0.3);
+    }
+    button.mod-warning:hover { background: rgba(224, 108, 117, 0.1); }
+
+    /* Icon-only buttons (refresh, pencil, trash) */
+    button:has(svg):not([class*='mod-']) {
+      padding: 5px 7px;
+      background: transparent;
+      color: var(--text-muted);
+    }
+    button:has(svg):not([class*='mod-']):hover { color: var(--text-normal); background: var(--background-modifier-hover); }
+    button.mod-warning:has(svg) { padding: 5px 7px; }
+
+    /* ── Toggle ──────────────────────────────────────────────────────────── */
+    .checkbox-container {
+      display: inline-flex;
+      align-items: center;
+      cursor: pointer;
+      position: relative;
+    }
+    .checkbox-container input[type=checkbox] { display: none; }
+    .checkbox-container .slider {
+      width: 36px; height: 20px;
+      background: var(--background-modifier-border);
+      border-radius: 10px;
+      position: relative;
+      transition: background 0.2s;
+    }
+    .checkbox-container .slider::after {
+      content: '';
+      position: absolute;
+      width: 14px; height: 14px;
+      background: #fff;
+      border-radius: 50%;
+      top: 3px; left: 3px;
+      transition: transform 0.2s;
+    }
+    .checkbox-container input:checked + .slider { background: var(--interactive-accent); }
+    .checkbox-container input:checked + .slider::after { transform: translateX(16px); }
+
+    /* ── Text input ──────────────────────────────────────────────────────── */
+    .text-input {
+      background: var(--background-modifier-form-field);
+      border: 1px solid var(--background-modifier-border);
+      border-radius: 4px;
+      color: var(--text-normal);
+      font-size: 13px;
+      padding: 4px 8px;
+      outline: none;
+      min-width: 180px;
+    }
+    .text-input:focus { border-color: var(--interactive-accent); }
+
+    /* ── Badge ───────────────────────────────────────────────────────────── */
+    .vault-bridges-badge { font-size: 13px; }
+
+    /* ── Status bar mock ─────────────────────────────────────────────────── */
+    .mock-statusbar {
+      height: 22px;
+      background: var(--background-secondary);
+      border-top: 1px solid var(--background-modifier-border);
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 0 12px;
+      gap: 14px;
+      font-size: 11px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+    .mock-statusbar .vault-bridges-status-bar {
+      cursor: pointer;
+      color: var(--text-muted);
+    }
+    .mock-statusbar .vault-bridges-status-bar:hover { color: var(--text-normal); }
+
+    /* ── Modal overrides ─────────────────────────────────────────────────── */
+    .modal-container h2 { color: var(--text-normal); font-size: 16px; }
+    .modal-container .setting-item:first-of-type { border-top: 1px solid var(--background-modifier-border); }
+    .modal-container .setting-item { flex-direction: column; align-items: flex-start; gap: 6px; }
+    .modal-container .setting-item-control { width: 100%; }
+    .modal-container .text-input { width: 100%; min-width: unset; }
+    .modal-container .setting-item-name { font-size: 13px; font-weight: 500; }
+    .modal-container .setting-item-description { font-size: 12px; white-space: normal; }
+  </style>
+
+  <link rel="stylesheet" href="../../styles.css" />
+</head>
+<body>
+  <div class="mock-window">
+    <!-- Title bar -->
+    <div class="mock-titlebar">
+      <div class="mock-titlebar-dot"></div>
+      <div class="mock-titlebar-dot"></div>
+      <div class="mock-titlebar-dot"></div>
+      <span class="mock-titlebar-title">Settings — Personal</span>
+    </div>
+
+    <!-- Settings modal -->
+    <div class="mock-modal">
+      <!-- Left sidebar -->
+      <div class="mock-sidebar">
+        <div class="mock-sidebar-section">Plugin Options</div>
+        <div class="mock-sidebar-item">Obsidian Git</div>
+        <div class="mock-sidebar-item active">Vault Bridges</div>
+        <div class="mock-sidebar-item">Dataview</div>
+        <div class="mock-sidebar-item">Templater</div>
+        <div class="mock-sidebar-item">Calendar</div>
+      </div>
+
+      <!-- Right content -->
+      <div class="mock-content">
+        <div id="settings-content"></div>
+      </div>
+    </div>
+
+    <!-- Status bar -->
+    <div class="mock-statusbar">
+      <span>3 files</span>
+      <span class="vault-bridges-status-bar" id="status-bar-item">⇅ 3 bridges ✓</span>
+    </div>
+  </div>
+
+  <script src="./dist/bundle.js"></script>
+</body>
+</html>

@@ -37,6 +37,9 @@ Vault Bridges does not clone repos for you. It assumes the repo already exists o
 
 1. Open **Settings → Vault Bridges**
 2. Click **+ Add Bridge**
+
+![Add Bridge modal](../docs/screenshot-add-bridge.png)
+
 3. Fill in the form:
 
 **Name**
@@ -76,6 +79,8 @@ If enabled, this bridge will be pulled automatically every time Obsidian opens (
 Your files now appear inside Obsidian at the vault destination path you specified.
 
 ---
+
+![Settings panel after adding bridges](../docs/screenshot-settings.png)
 
 ## Step 3: Verify It's Working
 

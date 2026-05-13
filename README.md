@@ -6,6 +6,14 @@ Vault Bridges lets you point at any locally-cloned Git repo (or a subfolder with
 
 ---
 
+## Screenshots
+
+![Vault Bridges settings panel showing three bridges with different statuses](docs/screenshot-settings.png)
+
+![Add Bridge modal with form filled in](docs/screenshot-add-bridge.png)
+
+---
+
 ## Why Vault Bridges?
 
 Obsidian is vault-bound by design. If you have notes, docs, or ADRs living in a Git repo outside your vault, your options are usually "copy them in manually" or "give up on linking them."
