@@ -6,7 +6,7 @@
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
-		"deploy": "npm run build && cp main.js manifest.json styles.css \"${VAULT_PLUGIN_DIR:-$HOME/Documents/Personal/.obsidian/plugins}/vault-bridges/\"",
+		"deploy": "npm run build && cp main.js manifest.json styles.css \"${VAULT_PLUGIN_DIR:?Set VAULT_PLUGIN_DIR to your vault's .obsidian/plugins folder}/vault-bridges/\"",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
 		"typecheck": "tsc --noEmit",
 		"build:harness": "node test/harness/esbuild.mjs",
