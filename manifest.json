@@ -1,9 +1,9 @@
 {
 	"id": "vault-bridges",
 	"name": "Vault Bridges",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"minAppVersion": "0.15.0",
-	"description": "Link external Git repositories into your vault via symlinks. Pull updates, manage connections, and keep external content fresh.",
+	"description": "Bidirectional sync between local Git repos and your vault. Pull repo files in as real indexed copies, edit in Obsidian, and push commits back — with overwrite protection.",
 	"author": "Rick Bowman",
 	"authorUrl": "https://github.com/richardbowman",
 	"isDesktopOnly": true
