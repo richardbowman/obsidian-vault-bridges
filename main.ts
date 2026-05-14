@@ -40,6 +40,13 @@ export default class VaultBridgesPlugin extends Plugin {
 			this.bridgeManager.syncOnStartup();
 		});
 
+		// Watch for vault file changes to update dirty state in real time
+		this.registerEvent(
+			this.app.vault.on('modify', (file) => {
+				this.bridgeManager.onVaultFileModified(file.path);
+			})
+		);
+
 		console.log('Vault Bridges: loaded');
 	}
 

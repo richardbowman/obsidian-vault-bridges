@@ -42,6 +42,24 @@ export class BridgeManager {
 		bridge.isDirty = false;
 	}
 
+	onVaultFileModified(filePath: string): void {
+		let anyChanged = false;
+		for (const bridge of this.plugin.settings.bridges) {
+			if (!bridge.fileManifest) continue;
+			// Check if the modified file is inside this bridge's vault path
+			if (!filePath.startsWith(bridge.vaultPath + '/') && filePath !== bridge.vaultPath) continue;
+			const isDirty = this.checkDirty(bridge);
+			if (bridge.isDirty !== isDirty) {
+				bridge.isDirty = isDirty;
+				anyChanged = true;
+			}
+		}
+		if (anyChanged) {
+			this.plugin.saveSettings();
+			this.plugin.statusBar.update();
+		}
+	}
+
 	checkDirty(bridge: Bridge): boolean {
 		if (!bridge.fileManifest || Object.keys(bridge.fileManifest).length === 0) return false;
 
