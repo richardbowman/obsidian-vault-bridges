@@ -95,13 +95,18 @@ This is not an error. It means the local repo is already in sync with the remote
 
 ## "My vault edits got overwritten"
 
-**Cause:** You edited files in the vault copy of a bridge and then ran a Pull without Pushing first. Pull always wins — it overwrites vault files with the repo's current contents.
+**Cause:** This should rarely happen now — the plugin detects unsaved vault edits before pulling and shows a warning modal. However, overwriting can still occur if:
+- You clicked **Pull anyway** in the warning modal
+- You used **Rebuild All Copies** (which re-copies from the repo without a dirty check)
+- The bridge had no `fileManifest` yet (e.g. it was added before this version)
 
-**Fix:**
-- **Prevention:** Always Push before you Pull if you have unsaved edits in the vault.
-- **Recovery:** If the overwritten content was committed to git at any point, retrieve it with `git log` and `git show`. If it was never committed, it cannot be recovered.
+**Recovery:** If the overwritten content was committed to git at any point, retrieve it with `git log` and `git show <commit>:<file>`. If it was never committed, it cannot be recovered.
 
-**Workflow to remember:** Edit in Obsidian → **Push** (commits and pushes your edits) → **Pull** (safe to pull now, your changes are upstream).
+## Bridge shows ⚠️ unsaved edits badge
+
+**Cause:** The plugin detected that vault files have been modified since the last pull. This is expected when you've been editing.
+
+**Fix:** Hit the **Push** button (⬆) to commit your edits back to the repo. The dirty badge will clear once the push succeeds. Alternatively, Pull anyway to discard the edits — the warning modal will appear first.
 
 ---
 

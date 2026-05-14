@@ -114,7 +114,7 @@ For each bridge, sync:
 
 - Clone repos from a URL — the repo must already exist on disk
 - Handle merge conflicts — if `git pull` results in a conflict, the error is surfaced and the bridge is marked as errored
-- Resolve conflicts between vault edits and repo changes — pull will overwrite the vault copy with repo state
+- Resolve merge conflicts — if you have pushed vault edits and the remote has also moved on, you'll need to resolve the conflict in the repo via terminal
 
 ---
 
@@ -126,9 +126,13 @@ Workflow for making edits:
 
 1. Edit the file in your vault
 2. Hit **Push** to copy your changes back to the repo and commit them
-3. The next **Pull** will overwrite the vault copy with the repo's state — push first if you have unsaved edits you want to keep
 
-> **Important:** If you pull without pushing first, any vault edits that were not yet pushed will be overwritten by the incoming repo state.
+**Overwrite protection:** The plugin tracks file modification times since the last pull. If you try to Pull with unsaved vault edits, a warning modal appears with three options:
+- **Push then Pull** — commits your edits and pushes them first, then pulls the latest (the safe path)
+- **Pull anyway** — discards your vault edits and overwrites with the repo state
+- **Cancel** — does nothing
+
+On startup auto-pull, dirty bridges are skipped entirely with a notice rather than silently overwriting your work.
 
 ---
 

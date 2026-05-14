@@ -32,12 +32,13 @@ Vault Bridges adds a third option: a managed, bidirectional bridge that stays fr
 
 - **Bidirectional sync** — pull from Git into your vault, or push edits from your vault back to the repo with a commit and push
 - **Real file copies** — files are copied into the vault (not symlinked), so Obsidian fully indexes, searches, and links them
+- **Dirty detection** — tracks file modifications since the last pull; warns before overwriting unsaved vault edits with a modal offering Push then Pull, Pull anyway, or Cancel
+- **Safe auto-pull on startup** — skips dirty bridges on startup and notifies you instead of silently overwriting edits
 - **Automatic legacy cleanup** — any old symlinks at a bridge destination are automatically replaced with real file copies on first sync
 - **Subfolder support** — bridge a whole repo or just a subdirectory (e.g. `docs/adr`)
-- **Per-bridge controls** — pull, push, edit, or remove each bridge independently
+- **Per-bridge controls** — pull, push, edit, or remove each bridge independently; separate pulled/pushed timestamps at a glance
 - **Bulk actions** — Pull All, Push All, and Rebuild All Copies from the settings panel
 - **Status bar indicator** — see bridge health at a glance; click to open settings
-- **Auto-pull on startup** — optionally pull all bridges when Obsidian opens
 - **Desktop only** — requires local filesystem access; mobile is not supported
 
 ---

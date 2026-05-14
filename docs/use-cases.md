@@ -125,7 +125,7 @@ Because bridged files are real copies in your vault, you can edit them directly 
 2. Click the **Push** button (⬆) for the bridge in Settings → Vault Bridges, or use **Cmd+P → Push All Bridges**
 3. Vault Bridges copies your vault files back to the repo, commits the changes, and pushes to the remote
 
-**Important:** If you have vault edits and also want to pull in upstream changes, always **Push first, then Pull**. A Pull overwrites vault files with repo contents — unsaved vault edits will be lost if you Pull without Pushing first.
+**Overwrite protection:** If you try to Pull with unsaved vault edits, the plugin detects this and shows a warning modal with three choices: **Push then Pull** (safe), **Pull anyway** (discards edits), or **Cancel**. On startup auto-pull, dirty bridges are skipped with a notice rather than silently overwriting your work.
 
 ---
 
