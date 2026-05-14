@@ -6,7 +6,11 @@ export interface Bridge {
 	vaultPath: string;     // destination path inside vault
 	branch: string;
 	autoSync: boolean;
-	lastSynced?: string;   // ISO timestamp
+	lastSynced?: string;   // ISO timestamp (kept for backward compat, mirrors lastPulled)
+	lastPulled?: string;   // ISO timestamp of last successful pull
+	lastPushed?: string;   // ISO timestamp of last successful push
+	fileManifest?: Record<string, number>; // vault-relative path → mtimeMs, recorded after each pull
+	isDirty?: boolean;     // true if vault files have been modified since last pull
 	status: 'ok' | 'error' | 'syncing' | 'unlinked' | 'unknown';
 	lastError?: string;
 }

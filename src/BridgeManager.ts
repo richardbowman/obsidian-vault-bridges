@@ -5,6 +5,7 @@ import * as path from 'path';
 import { Notice } from 'obsidian';
 import type VaultBridgesPlugin from '../main';
 import type { Bridge } from './types';
+import { DirtyWarningModal } from './DirtyWarningModal';
 
 const execAsync = promisify(exec);
 
@@ -15,6 +16,52 @@ export class BridgeManager {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		return (this.plugin.app.vault.adapter as any).basePath as string;
 	}
+
+	// ─── Manifest / dirty tracking ────────────────────────────────────────────
+
+	private buildManifest(basePath: string, currentPath: string): Record<string, number> {
+		const manifest: Record<string, number> = {};
+		if (!fs.existsSync(currentPath)) return manifest;
+
+		const entries = fs.readdirSync(currentPath, { withFileTypes: true });
+		for (const entry of entries) {
+			const fullPath = path.join(currentPath, entry.name);
+			if (entry.isDirectory()) {
+				Object.assign(manifest, this.buildManifest(basePath, fullPath));
+			} else if (entry.isFile()) {
+				const relPath = path.relative(basePath, fullPath);
+				manifest[relPath] = fs.statSync(fullPath).mtimeMs;
+			}
+		}
+		return manifest;
+	}
+
+	private recordManifest(bridge: Bridge): void {
+		const destPath = path.join(this.vaultBasePath, bridge.vaultPath);
+		bridge.fileManifest = this.buildManifest(destPath, destPath);
+		bridge.isDirty = false;
+	}
+
+	checkDirty(bridge: Bridge): boolean {
+		if (!bridge.fileManifest || Object.keys(bridge.fileManifest).length === 0) return false;
+
+		const destPath = path.join(this.vaultBasePath, bridge.vaultPath);
+		if (!fs.existsSync(destPath)) return false;
+
+		const current = this.buildManifest(destPath, destPath);
+
+		// Check for modified or new files
+		for (const [relPath, mtime] of Object.entries(current)) {
+			if (bridge.fileManifest[relPath] !== mtime) return true;
+		}
+		// Check for deleted files
+		for (const relPath of Object.keys(bridge.fileManifest)) {
+			if (!(relPath in current)) return true;
+		}
+		return false;
+	}
+
+	// ─── Sync (pull) ──────────────────────────────────────────────────────────
 
 	async syncAll(): Promise<void> {
 		const { bridges } = this.plugin.settings;
@@ -40,22 +87,49 @@ export class BridgeManager {
 		if (autoBridges.length === 0) return;
 
 		for (const bridge of autoBridges) {
-			await this.syncBridge(bridge);
+			if (this.checkDirty(bridge)) {
+				bridge.isDirty = true;
+				new Notice(
+					`Vault Bridges: ⚠️ "${bridge.name}" has unsaved edits — skipping auto-pull. Open Settings to push or pull manually.`,
+					8000
+				);
+				continue;
+			}
+			await this.syncBridge(bridge, true);
 		}
 		await this.plugin.saveSettings();
 		this.plugin.statusBar.update();
 	}
 
-	async syncBridge(bridge: Bridge): Promise<void> {
+	async syncBridge(bridge: Bridge, force = false): Promise<void> {
+		// Warn if vault has edits since last pull (skip check when forced)
+		if (!force && this.checkDirty(bridge)) {
+			bridge.isDirty = true;
+			await this.plugin.saveSettings();
+			new DirtyWarningModal(this.plugin.app, bridge, {
+				onPushThenPull: async () => {
+					await this.pushBridge(bridge);
+					await this.syncBridge(bridge, true);
+				},
+				onPullAnyway: async () => {
+					await this.syncBridge(bridge, true);
+				},
+			}).open();
+			return;
+		}
+
 		bridge.status = 'syncing';
 		this.plugin.statusBar.update();
 
 		try {
 			await this.gitPull(bridge);
 			await this.copyFiles(bridge);
+			this.recordManifest(bridge);
 
 			bridge.status = 'ok';
-			bridge.lastSynced = new Date().toISOString();
+			bridge.isDirty = false;
+			bridge.lastPulled = new Date().toISOString();
+			bridge.lastSynced = bridge.lastPulled;
 			bridge.lastError = undefined;
 		} catch (err) {
 			bridge.status = 'error';
@@ -147,6 +221,7 @@ export class BridgeManager {
 		for (const bridge of this.plugin.settings.bridges) {
 			try {
 				await this.copyFiles(bridge);
+				this.recordManifest(bridge);
 			} catch (err) {
 				console.error(`Vault Bridges: Failed to rebuild copy for "${bridge.name}":`, err);
 			}
@@ -154,6 +229,8 @@ export class BridgeManager {
 		await this.plugin.saveSettings();
 		new Notice('Vault Bridges: All copies rebuilt ✓');
 	}
+
+	// ─── Push ─────────────────────────────────────────────────────────────────
 
 	async pushAll(): Promise<void> {
 		const { bridges } = this.plugin.settings;
@@ -209,6 +286,8 @@ export class BridgeManager {
 			if (!statusOut.trim()) {
 				new Notice(`Vault Bridges: "${bridge.name}" — nothing to push, already up to date`);
 				bridge.status = 'ok';
+				bridge.isDirty = false;
+				this.recordManifest(bridge);
 				return;
 			}
 
@@ -224,8 +303,11 @@ export class BridgeManager {
 			);
 
 			bridge.status = 'ok';
-			bridge.lastSynced = new Date().toISOString();
+			bridge.isDirty = false;
+			bridge.lastPushed = new Date().toISOString();
+			bridge.lastSynced = bridge.lastPushed;
 			bridge.lastError = undefined;
+			this.recordManifest(bridge);
 			new Notice(`Vault Bridges: ✓ "${bridge.name}" pushed to ${bridge.branch}`);
 		} catch (err) {
 			bridge.status = 'error';

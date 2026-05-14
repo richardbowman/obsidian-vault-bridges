@@ -90,15 +90,26 @@ export class VaultBridgesSettingsTab extends PluginSettingTab {
 
 	private renderBridges(containerEl: HTMLElement): void {
 		for (const bridge of this.plugin.settings.bridges) {
+			const isDirty = this.plugin.bridgeManager.checkDirty(bridge);
+			bridge.isDirty = isDirty;
+
 			const setting = new Setting(containerEl)
 				.setName(bridge.name)
-				.setDesc(this.descriptionFor(bridge));
+				.setDesc(this.descriptionFor(bridge, isDirty));
 
 			// Inline status badge
 			setting.nameEl.createSpan({
 				text: ` ${this.statusEmoji(bridge.status)}`,
 				cls: `vault-bridges-badge vault-bridges-badge-${bridge.status}`,
 			});
+
+			// Dirty badge
+			if (isDirty) {
+				setting.nameEl.createSpan({
+					text: ' ⚠️ unsaved edits',
+					cls: 'vault-bridges-badge vault-bridges-badge-dirty',
+				});
+			}
 
 			setting
 				.addButton(btn =>
@@ -146,16 +157,22 @@ export class VaultBridgesSettingsTab extends PluginSettingTab {
 		}
 	}
 
-	private descriptionFor(bridge: Bridge): string {
+	private descriptionFor(bridge: Bridge, isDirty = false): string {
 		const src = bridge.sourcePath
 			? `${bridge.repoPath}/${bridge.sourcePath}`
 			: bridge.repoPath;
 		const arrow = '→';
-		const syncLabel = bridge.lastSynced
-			? `Last synced ${new Date(bridge.lastSynced).toLocaleString()}`
-			: 'Never synced';
+
+		const pulledLabel = bridge.lastPulled
+			? `Pulled ${new Date(bridge.lastPulled).toLocaleString()}`
+			: 'Never pulled';
+		const pushedLabel = bridge.lastPushed
+			? ` · Pushed ${new Date(bridge.lastPushed).toLocaleString()}`
+			: '';
+		const dirtyNote = isDirty ? ' · ⚠️ Push before pulling' : '';
 		const errorNote = bridge.lastError ? ` · Error: ${bridge.lastError}` : '';
-		return `${src} ${arrow} ${bridge.vaultPath} · ${syncLabel}${errorNote}`;
+
+		return `${src} ${arrow} ${bridge.vaultPath} · ${pulledLabel}${pushedLabel}${dirtyNote}${errorNote}`;
 	}
 
 	private statusEmoji(status: Bridge['status']): string {
