@@ -136,6 +136,9 @@ export class BridgeManager {
 			bridge.lastError = err instanceof Error ? err.message : String(err);
 			console.error(`Vault Bridges: Error syncing "${bridge.name}":`, err);
 			new Notice(`Vault Bridges: ❌ "${bridge.name}" — ${bridge.lastError}`, 8000);
+		} finally {
+			await this.plugin.saveSettings();
+			this.plugin.statusBar.update();
 		}
 	}
 
