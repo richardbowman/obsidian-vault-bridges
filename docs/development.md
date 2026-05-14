@@ -30,7 +30,7 @@ obsidian-vault-bridges/
 ├── main.ts                  # Plugin entry point — registers commands, settings tab, startup hook
 ├── src/
 │   ├── types.ts             # Bridge and VaultBridgesSettings interfaces + defaults
-│   ├── BridgeManager.ts     # Core logic: git pull, symlink create/verify/remove
+│   ├── BridgeManager.ts     # Core logic: git pull + file copy + push
 │   ├── SettingsTab.ts       # Settings UI — bridge list, add/remove/sync controls
 │   ├── AddBridgeModal.ts    # Modal form for adding and editing bridges
 │   └── StatusBar.ts         # Status bar item with live bridge count
@@ -88,27 +88,28 @@ The watch mode build writes to `main.js` in the project root. The `deploy` scrip
 1. Loads saved settings via `loadData()`
 2. Instantiates `BridgeManager` and `StatusBarManager`
 3. Registers the settings tab
-4. Registers commands
+4. Registers commands (including "Push All Bridges")
 5. Hooks into `workspace.onLayoutReady()` for startup sync
 
-`onunload()` cleans up (currently just logs; symlinks are intentionally left in place).
+`onunload()` cleans up (currently just logs; copied files are intentionally left in place).
 
 ### BridgeManager (`src/BridgeManager.ts`)
 
 The core class. Responsible for:
 - **`syncAll()`** — iterates all bridges and calls `syncBridge()` on each
-- **`syncBridge(bridge)`** — runs `gitPull()` then `ensureLink()`; updates status fields
+- **`syncBridge(bridge)`** — runs `gitPull()` then `copyFiles()`; updates status fields
 - **`gitPull(bridge)`** — runs `git -C <repoPath> pull origin <branch>` via `child_process`
-- **`ensureLink(bridge)`** — checks symlink state, creates or repairs as needed
-- **`createLink(src, dest)`** — platform-aware: junction points on Windows, `fs.symlink` elsewhere
-- **`removeLink(bridge)`** — deletes the symlink, sets status to `unlinked`
-- **`rebuildAllLinks()`** — calls `ensureLink()` for every bridge (used after vault move)
+- **`copyFiles(bridge)`** — removes any legacy symlink at the destination, then copies repo source into the vault using `fs.cpSync` (with a filter that excludes `.git/`); creates parent directories as needed
+- **`pushBridge(bridge)`** — copies vault destination back to the repo source, runs `git add -A`, checks `git status --porcelain` to see if there's anything to commit, and if so runs `git commit` followed by `git push`
+- **`pushAll()`** — iterates all bridges and calls `pushBridge()` on each
+- **`removeLink(bridge)`** — removes the copied directory from the vault with `fs.rmSync({ recursive: true })`; sets status to `unlinked`
+- **`rebuildAllLinks()`** — calls `copyFiles()` for every bridge (re-copies all files from repos into the vault; used after vault move or to force a fresh copy)
 
 `vaultBasePath` is a getter that reads the vault's absolute path from Obsidian's internal adapter. This is not a public API but is stable across Obsidian versions.
 
 ### SettingsTab (`src/SettingsTab.ts`)
 
-Standard `PluginSettingTab` subclass. `display()` rebuilds the entire UI from settings state each time it's called. Bridge list items use Obsidian's `Setting` component with icon buttons (refresh, pencil, trash).
+Standard `PluginSettingTab` subclass. `display()` rebuilds the entire UI from settings state each time it's called. Bridge list items use Obsidian's `Setting` component with icon buttons (pull, push, pencil, trash).
 
 ### AddBridgeModal (`src/AddBridgeModal.ts`)
 
@@ -161,16 +162,13 @@ Creates a status bar item on construction. `update()` is called after every sync
 ## Obsidian API Notes
 
 ### `vault.adapter.basePath`
-Used to resolve absolute paths for symlink creation. Not officially documented but stable. Accessed via:
+Used to resolve absolute paths for file copy operations. Not officially documented but stable. Accessed via:
 ```ts
 (this.plugin.app.vault.adapter as any).basePath as string
 ```
 
 ### `app.setting.open()` / `openTabById(id)`
 Used by the status bar click handler to navigate directly to this plugin's settings tab. Also undocumented but stable.
-
-### `Platform.isWin`
-Obsidian's cross-platform flag for detecting Windows. Used to choose between `fs.symlink` and `mklink /J`.
 
 ---
 
@@ -189,4 +187,4 @@ The main review concerns for this plugin are the use of `child_process` (permitt
 
 ## Questions / Contributing
 
-Open an issue on GitHub before starting significant work so we can discuss the approach. PRs are welcome for bug fixes, Windows improvements, and well-scoped features.
+Open an issue on GitHub before starting significant work so we can discuss the approach. PRs are welcome for bug fixes, and well-scoped features.

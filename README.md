@@ -1,8 +1,8 @@
 # Vault Bridges — Obsidian Plugin
 
-**Connect external Git repositories into your vault via managed symlinks.**
+**Connect external Git repositories into your vault with bidirectional sync.**
 
-Vault Bridges lets you point at any locally-cloned Git repo (or a subfolder within one), pull the latest changes, and access those files directly inside Obsidian — fully searchable, linkable, and editable. No manual symlinking, no copy-paste sync.
+Vault Bridges lets you point at any locally-cloned Git repo (or a subfolder within one), pull the latest changes, and access those files directly inside Obsidian — as real files, fully searchable, linkable, and indexable. Edit them in Obsidian and push your changes back to Git with a single click.
 
 ---
 
@@ -18,25 +18,27 @@ Vault Bridges lets you point at any locally-cloned Git repo (or a subfolder with
 
 Obsidian is vault-bound by design. If you have notes, docs, or ADRs living in a Git repo outside your vault, your options are usually "copy them in manually" or "give up on linking them."
 
-Vault Bridges adds a third option: a managed symlink that stays fresh. Each **bridge** is a named connection between a local repo (or subfolder) and a destination path in your vault. The plugin handles creating the symlink, pulling the latest from Git, and showing you status at a glance.
+Vault Bridges adds a third option: a managed, bidirectional bridge that stays fresh. Each **bridge** is a named connection between a local repo (or subfolder) and a destination path in your vault. The plugin handles copying files in, pulling the latest from Git, and pushing your edits back — all from inside Obsidian.
 
 **Common use cases:**
 - Surfacing `docs/` or `ADRs/` from a work repo into your PKM
 - Keeping a shared team knowledge base in sync
-- Reading changelogs and READMEs from projects you maintain
-- Linking dotfiles docs into your vault
+- Editing changelogs and READMEs from projects you maintain and committing changes back
+- Linking dotfiles docs into your vault and pushing updates directly
 
 ---
 
 ## Features
 
-- **Git pull on demand** — sync any bridge from the command palette, settings panel, or automatically on Obsidian startup
-- **Symlink management** — creates, verifies, and repairs symlinks automatically; no manual `ln -s` required
-- **Subfolder support** — link a whole repo or just a subdirectory (e.g. `docs/adr`)
-- **Per-bridge controls** — sync, edit, or remove each bridge independently
+- **Bidirectional sync** — pull from Git into your vault, or push edits from your vault back to the repo with a commit and push
+- **Real file copies** — files are copied into the vault (not symlinked), so Obsidian fully indexes, searches, and links them
+- **Automatic legacy cleanup** — any old symlinks at a bridge destination are automatically replaced with real file copies on first sync
+- **Subfolder support** — bridge a whole repo or just a subdirectory (e.g. `docs/adr`)
+- **Per-bridge controls** — pull, push, edit, or remove each bridge independently
+- **Bulk actions** — Pull All, Push All, and Rebuild All Copies from the settings panel
 - **Status bar indicator** — see bridge health at a glance; click to open settings
-- **Cross-platform** — uses symlinks on macOS/Linux, junction points on Windows (no admin rights required for directories)
-- **Desktop only** — symlinks require filesystem access; mobile is not supported
+- **Auto-pull on startup** — optionally pull all bridges when Obsidian opens
+- **Desktop only** — requires local filesystem access; mobile is not supported
 
 ---
 
@@ -69,9 +71,13 @@ Vault Bridges adds a third option: a managed symlink that stays fresh. Each **br
    - **Source subfolder** — e.g. `docs/adr` (leave blank for the whole repo)
    - **Vault destination** — e.g. `Work/ADRs`
    - **Branch** — default `main`
-5. Save — the plugin will pull and create the symlink immediately
+5. Save — the plugin will immediately pull from Git and copy the files into your vault
 
-Your files now appear at `Work/ADRs` inside your vault and are fully accessible.
+Your files now appear at `Work/ADRs` inside your vault as real, fully-indexed copies.
+
+**To pull updates:** click the ⬇ (arrow-down-circle) button next to a bridge, or use **Pull All** / the `Vault Bridges: Sync All Bridges` command.
+
+**To push edits back to Git:** click the ⬆ (arrow-up-circle) button next to a bridge. The plugin copies your vault files back to the repo, then runs `git add -A && git commit && git push origin <branch>`.
 
 ---
 
@@ -81,18 +87,27 @@ Your files now appear at `Work/ADRs` inside your vault and are fully accessible.
 
 | Setting | Description |
 |---|---|
-| **Sync on startup** | Pull all auto-sync bridges when Obsidian opens |
+| **Sync on startup** | Pull all auto-sync bridges when Obsidian opens (pull only; push is always manual) |
 
 ### Per-Bridge Fields
 
 | Field | Required | Description |
 |---|---|---|
 | **Name** | ✅ | Display label for this bridge |
-| **Local repo path** | ✅ | Absolute path to the git repo root on your machine |
-| **Source subfolder** | — | Subfolder within the repo to link. Leave blank to link the entire repo root |
-| **Vault destination path** | ✅ | Relative path inside your vault where the symlink will appear |
-| **Branch** | ✅ | Git branch to pull from (default: `main`) |
-| **Auto sync on startup** | — | Pull this specific bridge on Obsidian startup |
+| **Local repo path** | ✅ | Absolute path to the git repo root on your machine (must already be cloned) |
+| **Source subfolder** | — | Subfolder within the repo to copy. Leave blank to copy the entire repo root |
+| **Vault destination path** | ✅ | Relative path inside your vault where files will be copied |
+| **Branch** | ✅ | Git branch to pull from and push to (default: `main`) |
+| **Auto sync on startup** | — | Pull this specific bridge when Obsidian opens |
+
+### Per-Bridge Controls
+
+| Button | Action |
+|---|---|
+| ⬇ (arrow-down-circle) | **Pull** — `git pull` then copy repo files into the vault |
+| ⬆ (arrow-up-circle) | **Push** — copy vault files back to the repo, then commit and push |
+| Pencil | Edit this bridge's configuration |
+| Trash | Remove this bridge (does not delete vault files) |
 
 ### Status Indicators
 
@@ -101,7 +116,6 @@ Your files now appear at `Work/ADRs` inside your vault and are fully accessible.
 | ✅ | Last sync succeeded |
 | ❌ | Last sync failed — hover or open settings to see the error |
 | 🔄 | Currently syncing |
-| 🔗 | Symlink removed (bridge is registered but unlinked) |
 | ⚪ | Never synced |
 
 ---
@@ -112,35 +126,19 @@ Access via **Cmd/Ctrl+P**:
 
 | Command | Description |
 |---|---|
-| `Vault Bridges: Sync All Bridges` | Pull and verify every bridge |
-| `Vault Bridges: Rebuild All Links` | Tear down and recreate all symlinks — useful after moving the vault |
+| `Vault Bridges: Sync All Bridges` | Pull all bridges (git pull + copy files into vault) |
+| `Vault Bridges: Push All Bridges` | Push all bridges (copy vault files to repo, commit, and push) |
+| `Vault Bridges: Rebuild All Copies` | Re-copy all files from repos into the vault — useful after moving the vault or if files get out of sync |
 
-Individual bridge sync is available from the **Settings → Vault Bridges** panel via the refresh icon next to each bridge.
-
----
-
-## Platform Notes
-
-### macOS / Linux
-
-Standard symlinks (`fs.symlink`) are used. No special permissions required.
-
-### Windows
-
-Directory bridges use **junction points** (`mklink /J`) rather than symlinks. Junction points don't require Administrator rights or Developer Mode, making them the safe default for directory links.
-
-For **file-level** bridges on Windows (i.e. linking a single file rather than a directory), a standard symlink is used, which may require Developer Mode to be enabled in Windows Settings.
-
-See [Windows Setup Guide](docs/windows.md) for detailed instructions.
+Individual bridge pull and push are also available from the **Settings → Vault Bridges** panel via the per-bridge buttons.
 
 ---
 
 ## Known Limitations
 
-- **Read-only pull only** — the plugin pulls but does not push. If you edit bridged files in Obsidian, you'll need to push from a terminal.
 - **Repo must be cloned locally** — the plugin does not clone repos from a URL. You need to have the repo on disk already.
-- **No mobile support** — symlinks require filesystem access not available on Obsidian Mobile.
-- **Vault move** — if you move your vault, run `Vault Bridges: Rebuild All Links` to recreate symlinks at the new absolute path.
+- **No mobile support** — requires local filesystem access not available on Obsidian Mobile.
+- **Vault move** — if you move your vault, run `Vault Bridges: Rebuild All Copies` to re-copy files at the new location.
 - **Obsidian Git coexistence** — if your vault is itself a git repo managed by Obsidian Git, add your bridge destination paths to the vault's `.gitignore` to prevent double-tracking.
 
 ---
@@ -170,7 +168,7 @@ See [Development Guide](docs/development.md) for architecture details, adding ne
 
 ## Contributing
 
-Issues and PRs welcome. If you have a use case that isn't covered — clone-from-URL, push support, sync scheduling — please open an issue first to discuss the approach before building.
+Issues and PRs welcome. If you have a use case that isn't covered — clone-from-URL, sync scheduling, conflict resolution — please open an issue first to discuss the approach before building.
 
 ---
 

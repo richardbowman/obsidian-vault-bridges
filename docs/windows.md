@@ -1,40 +1,12 @@
-# Windows Setup Guide
+# Windows Notes
 
-Vault Bridges works on Windows but has some differences from macOS/Linux due to how Windows handles filesystem links.
-
----
-
-## Symlinks vs Junction Points
-
-Windows has two types of filesystem links relevant to Vault Bridges:
-
-| Type | Works for | Requires admin? | Requires Developer Mode? |
-|---|---|---|---|
-| **Junction point** (`mklink /J`) | Directories only | ❌ No | ❌ No |
-| **Symlink** (`mklink /D` or `mklink`) | Files and directories | ✅ Usually | ✅ If not admin |
-
-Vault Bridges automatically uses **junction points** for directory bridges on Windows. This covers the vast majority of use cases (linking a folder from a repo) and requires no special permissions.
-
-For **single-file bridges** on Windows, a standard symlink is used, which may require Developer Mode.
+Vault Bridges uses file copying (via Node's `fs.cpSync`) rather than symlinks or junction points. This means Windows works identically to macOS and Linux — no Developer Mode, no admin rights, and no `mklink` required.
 
 ---
 
-## Enabling Developer Mode (if needed)
+## Git in PATH
 
-If you need to link individual files rather than directories:
-
-1. Open **Windows Settings** (Win+I)
-2. Go to **System → For Developers**
-3. Toggle **Developer Mode** on
-4. Restart any open terminals
-
-After enabling Developer Mode, non-admin users can create symlinks without elevation.
-
----
-
-## Verifying Git is in PATH
-
-Vault Bridges runs `git pull` using the system `git` command. On Windows, Git may not be in your PATH depending on how it was installed.
+Vault Bridges runs `git pull` and `git push` using the system `git` command. On Windows, Git may not be in your PATH depending on how it was installed.
 
 To verify:
 1. Open **Command Prompt** or **PowerShell**
@@ -67,29 +39,33 @@ Both formats are accepted.
 
 ---
 
-## OneDrive, Dropbox, and Sync Conflicts
+## OneDrive, Dropbox, and Cloud Sync
 
-If your Obsidian vault lives in a OneDrive or Dropbox folder, be aware that most cloud sync tools **do not follow junction points or symlinks**. They will either:
-- Skip the linked content entirely
-- Try to sync the link itself (as a shortcut/alias file), not the contents
+If your Obsidian vault lives in a OneDrive or Dropbox folder, be aware that cloud sync tools may interfere with bridged files. Because the vault now contains real copied files (not junction points), cloud sync will actually index and upload the bridged content — which is usually fine, but can cause issues:
 
-If cloud sync is important to you, consider placing your vault outside of a synced folder, or excluding the bridge destination paths from sync.
+- **Sync conflicts:** If you edit bridged files on two machines and don't Push/Pull between sessions, cloud sync may create conflict copies
+- **Performance:** Large bridged repos (many files) will be uploaded to cloud storage, which may be slow or exceed quotas
+- **Re-sync on Pull:** Every Pull overwrites bridge files with repo contents, which triggers cloud sync to re-upload changed files
 
-For OneDrive specifically, you can exclude folders via right-click → "Always keep on this device" / "Free up space" doesn't help here — the better approach is to add the paths to `.cloudstorage-ignore` or use OneDrive's selective sync to exclude the bridge folders.
+If this is a concern, consider placing your vault outside a synced folder, or excluding bridge destination paths from cloud sync via your provider's selective sync settings.
 
 ---
 
-## Known Windows Limitations
+## Long Paths
 
-- **Junction points are directory-only.** If you need a single-file bridge, Developer Mode is required.
-- **Long paths.** If your repo or vault path exceeds 260 characters, enable long path support in Windows: run `git config --system core.longpaths true` in an admin terminal.
-- **Antivirus.** Some antivirus tools flag junction points or block `mklink`. If bridge creation fails with a permission error, check your antivirus logs.
+If your repo or vault path is deeply nested and exceeds 260 characters total, Windows may refuse to create files. To enable long path support:
+
+1. Run the following in an **admin** terminal:
+   ```
+   git config --system core.longpaths true
+   ```
+2. Enable long paths in Windows itself via Group Policy or registry (search "Enable Win32 long paths" for your Windows version)
 
 ---
 
 ## Reporting Windows Issues
 
-Windows symlink behavior is the most platform-specific part of this plugin. If you encounter an issue not covered here, please [open a GitHub issue](https://github.com/richardbowman/obsidian-vault-bridges/issues) with:
+If you encounter a Windows-specific issue not covered here, please [open a GitHub issue](https://github.com/richardbowman/obsidian-vault-bridges/issues) with:
 - Your Windows version
-- Whether the bridge is for a directory or a file
-- The exact error message from the Vault Bridges settings panel
+- The exact error message from the Vault Bridges settings panel or developer console
+- Steps to reproduce

@@ -2,7 +2,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as fs from 'fs';
 import * as path from 'path';
-import { Notice, Platform } from 'obsidian';
+import { Notice } from 'obsidian';
 import type VaultBridgesPlugin from '../main';
 import type { Bridge } from './types';
 
@@ -52,7 +52,7 @@ export class BridgeManager {
 
 		try {
 			await this.gitPull(bridge);
-			await this.ensureLink(bridge);
+			await this.copyFiles(bridge);
 
 			bridge.status = 'ok';
 			bridge.lastSynced = new Date().toISOString();
@@ -91,7 +91,7 @@ export class BridgeManager {
 		}
 	}
 
-	async ensureLink(bridge: Bridge): Promise<void> {
+	async copyFiles(bridge: Bridge): Promise<void> {
 		const sourcePath = bridge.sourcePath
 			? path.join(bridge.repoPath, bridge.sourcePath)
 			: bridge.repoPath;
@@ -108,19 +108,21 @@ export class BridgeManager {
 			fs.mkdirSync(destParent, { recursive: true });
 		}
 
-		// If link already exists, check if it's correct
-		if (fs.existsSync(destPath) || this.isSymlink(destPath)) {
-			const stat = fs.lstatSync(destPath);
-			if (stat.isSymbolicLink()) {
-				const existing = fs.readlinkSync(destPath);
-				if (existing === sourcePath) return; // Already correct
-				fs.unlinkSync(destPath);
-			} else {
-				throw new Error(`Destination exists and is not a symlink: ${destPath}`);
-			}
+		// If destination is a legacy symlink, remove it before copying
+		if (this.isSymlink(destPath)) {
+			fs.unlinkSync(destPath);
 		}
 
-		await this.createLink(sourcePath, destPath);
+		const stat = fs.statSync(sourcePath);
+		if (stat.isDirectory()) {
+			fs.cpSync(sourcePath, destPath, {
+				recursive: true,
+				force: true,
+				filter: (src: string) => path.basename(src) !== '.git',
+			});
+		} else {
+			fs.copyFileSync(sourcePath, destPath);
+		}
 	}
 
 	private isSymlink(p: string): boolean {
@@ -131,24 +133,12 @@ export class BridgeManager {
 		}
 	}
 
-	private async createLink(src: string, dest: string): Promise<void> {
-		if (Platform.isWin) {
-			const stat = fs.statSync(src);
-			if (stat.isDirectory()) {
-				// Junction points don't require admin or Developer Mode on Windows
-				await execAsync(`mklink /J "${dest}" "${src}"`);
-			} else {
-				fs.symlinkSync(src, dest);
-			}
-		} else {
-			fs.symlinkSync(src, dest);
-		}
-	}
-
 	async removeLink(bridge: Bridge): Promise<void> {
 		const destPath = path.join(this.vaultBasePath, bridge.vaultPath);
 		if (this.isSymlink(destPath)) {
 			fs.unlinkSync(destPath);
+		} else if (fs.existsSync(destPath)) {
+			fs.rmSync(destPath, { recursive: true, force: true });
 		}
 		bridge.status = 'unlinked';
 	}
@@ -156,12 +146,95 @@ export class BridgeManager {
 	async rebuildAllLinks(): Promise<void> {
 		for (const bridge of this.plugin.settings.bridges) {
 			try {
-				await this.ensureLink(bridge);
+				await this.copyFiles(bridge);
 			} catch (err) {
-				console.error(`Vault Bridges: Failed to rebuild link for "${bridge.name}":`, err);
+				console.error(`Vault Bridges: Failed to rebuild copy for "${bridge.name}":`, err);
 			}
 		}
 		await this.plugin.saveSettings();
-		new Notice('Vault Bridges: All links rebuilt ✓');
+		new Notice('Vault Bridges: All copies rebuilt ✓');
+	}
+
+	async pushAll(): Promise<void> {
+		const { bridges } = this.plugin.settings;
+		if (bridges.length === 0) {
+			new Notice('Vault Bridges: No bridges configured.');
+			return;
+		}
+		new Notice(`Vault Bridges: Pushing ${bridges.length} bridge${bridges.length > 1 ? 's' : ''}…`);
+		for (const bridge of bridges) {
+			await this.pushBridge(bridge);
+		}
+		await this.plugin.saveSettings();
+		this.plugin.statusBar.update();
+		new Notice('Vault Bridges: All bridges pushed ✓');
+	}
+
+	async pushBridge(bridge: Bridge): Promise<void> {
+		bridge.status = 'syncing';
+		this.plugin.statusBar.update();
+
+		try {
+			// Validate branch
+			if (!/^[a-zA-Z0-9._\-/]+$/.test(bridge.branch)) {
+				throw new Error(`Invalid branch name: "${bridge.branch}"`);
+			}
+
+			const sourcePath = bridge.sourcePath
+				? path.join(bridge.repoPath, bridge.sourcePath)
+				: bridge.repoPath;
+			const vaultPath = path.join(this.vaultBasePath, bridge.vaultPath);
+
+			if (!fs.existsSync(vaultPath)) {
+				throw new Error(`Vault path does not exist: ${vaultPath}. Run a pull sync first.`);
+			}
+
+			// Copy vault → repo (reverse direction)
+			const stat = fs.statSync(vaultPath);
+			if (stat.isDirectory()) {
+				fs.cpSync(vaultPath, sourcePath, { recursive: true, force: true });
+			} else {
+				fs.copyFileSync(vaultPath, sourcePath);
+			}
+
+			// Stage all changes
+			await execAsync(`git -C "${bridge.repoPath}" add -A`, { timeout: 15000 });
+
+			// Check if anything actually changed
+			const { stdout: statusOut } = await execAsync(
+				`git -C "${bridge.repoPath}" status --porcelain`,
+				{ timeout: 15000 }
+			);
+
+			if (!statusOut.trim()) {
+				new Notice(`Vault Bridges: "${bridge.name}" — nothing to push, already up to date`);
+				bridge.status = 'ok';
+				return;
+			}
+
+			// Commit and push
+			const timestamp = new Date().toLocaleString();
+			await execAsync(
+				`git -C "${bridge.repoPath}" commit -m "Update from Obsidian vault (${timestamp})"`,
+				{ timeout: 15000 }
+			);
+			await execAsync(
+				`git -C "${bridge.repoPath}" push origin "${bridge.branch}"`,
+				{ timeout: 30000 }
+			);
+
+			bridge.status = 'ok';
+			bridge.lastSynced = new Date().toISOString();
+			bridge.lastError = undefined;
+			new Notice(`Vault Bridges: ✓ "${bridge.name}" pushed to ${bridge.branch}`);
+		} catch (err) {
+			bridge.status = 'error';
+			bridge.lastError = err instanceof Error ? err.message : String(err);
+			console.error(`Vault Bridges: Error pushing "${bridge.name}":`, err);
+			new Notice(`Vault Bridges: ❌ "${bridge.name}" push failed — ${bridge.lastError}`, 8000);
+		} finally {
+			await this.plugin.saveSettings();
+			this.plugin.statusBar.update();
+		}
 	}
 }

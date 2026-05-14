@@ -48,7 +48,7 @@ Source subfolder:  docs                              ← subfolder goes here
 
 | Reason | Fix |
 |---|---|
-| No internet connection | Check connectivity; the symlink from a previous sync is still in place |
+| No internet connection | Check connectivity; any previously copied files remain in place |
 | Authentication required | Pull manually in a terminal to enter credentials or set up SSH keys |
 | Merge conflict | Resolve the conflict in the repo via terminal, then sync again |
 | Wrong branch name | Edit the bridge and correct the **Branch** field |
@@ -66,40 +66,58 @@ For authentication issues, after resolving them in the terminal, the next sync f
 
 ---
 
-## "Destination exists and is not a symlink"
+## "Vault path does not exist: run a pull sync first"
 
-**Cause:** There's already a real folder or file at the vault destination path — not a symlink. Vault Bridges refuses to overwrite it to prevent data loss.
+**Cause:** The bridge has never been synced. No files have been copied to the vault destination yet.
+
+**Fix:** Click the **Pull** button (or the sync icon) for the bridge in Settings → Vault Bridges. This copies files from the repo into the vault for the first time.
+
+---
+
+## "push failed: authentication"
+
+**Cause:** Git could not authenticate with the remote when attempting to push. This usually means credentials aren't cached for the remote.
 
 **Fix:**
-1. Move or delete the content at the vault destination path (back it up first if needed)
-2. Then sync the bridge — it will create the symlink in the now-empty location
+1. Open a terminal and `cd` to the repo path
+2. Run `git push` manually — this will prompt for credentials or trigger your SSH/credential helper
+3. Once credentials are cached, retry the push from Vault Bridges
+
+For long-term fix, set up SSH keys or a credential helper (e.g., `git config --global credential.helper osxkeychain` on macOS).
+
+---
+
+## "nothing to push, already up to date"
+
+This is not an error. It means the local repo is already in sync with the remote — no new commits were created (either because no vault files changed, or the last push already captured all changes).
+
+---
+
+## "My vault edits got overwritten"
+
+**Cause:** You edited files in the vault copy of a bridge and then ran a Pull without Pushing first. Pull always wins — it overwrites vault files with the repo's current contents.
+
+**Fix:**
+- **Prevention:** Always Push before you Pull if you have unsaved edits in the vault.
+- **Recovery:** If the overwritten content was committed to git at any point, retrieve it with `git log` and `git show`. If it was never committed, it cannot be recovered.
+
+**Workflow to remember:** Edit in Obsidian → **Push** (commits and pushes your edits) → **Pull** (safe to pull now, your changes are upstream).
 
 ---
 
 ## Files appear in the vault but don't update after sync
 
-**Cause:** Obsidian caches the file list. After a sync that pulls new files into the repo, Obsidian may not immediately show them.
+**Cause:** A Pull sync hasn't been run since the repo received new changes.
 
-**Fix:** Use **Cmd+P → Reload App Without Saving** or close and reopen Obsidian. Alternatively, right-click the bridged folder in the file explorer and choose **Reveal in Finder/Explorer** to confirm the files are there on disk.
+**Fix:** Click the sync/Pull button for the bridge. Because the vault contains real copied files (not symlinks), Obsidian picks up changes as soon as they land on disk — no app reload needed.
 
 ---
 
 ## Moved the vault — bridges are broken
 
-**Cause:** Symlinks store absolute paths. When you move a vault, symlinks created at the old location still point to the right source, but the vault path metadata stored in the plugin settings may be stale. More commonly, the symlinks themselves still exist but need to be verified.
+**Cause:** The plugin's stored vault path metadata may be stale after moving the vault, and any previously copied files are now in the old location.
 
-**Fix:** Open **Settings → Vault Bridges** and use the **Rebuild All Links** button. This tears down and recreates every symlink using the current vault location.
-
----
-
-## Bridge destination appears as an alias/shortcut on Windows instead of a real folder
-
-**Cause:** Junction points were not created correctly, or a sync service (OneDrive, Dropbox) replaced the junction with a shortcut.
-
-**Fix:**
-1. Remove the bridge in settings (this deletes the symlink/junction)
-2. Check that no cloud sync tool is interfering (see [Windows Setup](windows.md))
-3. Re-add the bridge — it will recreate the junction point
+**Fix:** Open **Settings → Vault Bridges** and use the **Rebuild All Copies** button. This re-copies all files from their repos into the new vault location, replacing any stale content.
 
 ---
 
@@ -111,19 +129,19 @@ For authentication issues, after resolving them in the terminal, the next sync f
 
 ---
 
-## Obsidian Git is trying to commit my bridge symlinks
+## Obsidian Git is trying to commit my bridged files
 
-**Cause:** If your vault is a git repo managed by Obsidian Git, it will see the symlinks as files to track.
+**Cause:** If your vault is a git repo managed by Obsidian Git, it will see the copied bridge files as files to track and commit.
 
 **Fix:** Add your bridge destination paths to the vault's `.gitignore`:
 
 ```gitignore
-# Vault Bridges — external repo symlinks
+# Vault Bridges — copied external repo content
 Work/Company Docs
 Projects/Backend API/Docs
 ```
 
-Then run `git rm --cached Work/Company\ Docs` (etc.) to untrack any that were already staged.
+Then run `git rm -r --cached "Work/Company Docs"` (etc.) to untrack any files that were already staged.
 
 ---
 

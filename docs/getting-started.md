@@ -53,15 +53,15 @@ Examples:
 - Windows: `C:\Users\you\projects\company-handbook`
 
 **Source subfolder** *(optional)*
-If you only want part of the repo, enter the subfolder path relative to the repo root. Leave blank to link the entire repo.
+If you only want part of the repo, enter the subfolder path relative to the repo root. Leave blank to copy the entire repo.
 
 Examples:
-- `docs` — links just the `docs/` folder
-- `docs/architecture` — links a nested subfolder
-- *(blank)* — links the entire repo root
+- `docs` — copies just the `docs/` folder
+- `docs/architecture` — copies a nested subfolder
+- *(blank)* — copies the entire repo root
 
 **Vault destination path**
-Where inside your vault the link will appear. This is a path relative to your vault root.
+Where inside your vault the files will appear. This is a path relative to your vault root.
 
 Examples:
 - `Work/Docs`
@@ -74,9 +74,9 @@ The Git branch to pull from. Defaults to `main`.
 **Auto sync on startup**
 If enabled, this bridge will be pulled automatically every time Obsidian opens (subject to the global "Sync on startup" setting also being on).
 
-4. Click **Add Bridge** — the plugin pulls the repo and creates the symlink immediately.
+4. Click **Add Bridge** — the plugin runs a Pull immediately: it does a `git pull` on the repo, then copies the files into your vault.
 
-Your files now appear inside Obsidian at the vault destination path you specified.
+Your files now appear inside Obsidian at the vault destination path you specified. They are real files — fully indexed and searchable via Cmd+Shift+F right away.
 
 ---
 
@@ -87,10 +87,22 @@ Your files now appear inside Obsidian at the vault destination path you specifie
 After adding the bridge:
 
 - Navigate to the vault destination path in Obsidian's file explorer — your repo files should be there
+- Search for a term you know is in those files (Cmd+Shift+F) — they should appear in results immediately
 - Check the status bar at the bottom of the screen — you should see `⇅ 1 bridge ✓`
-- Open any file from the bridged folder and confirm it renders correctly
 
 If you see ❌ in the status bar, open **Settings → Vault Bridges** — the error message will be shown next to the bridge.
+
+---
+
+## Step 4: Edit and Sync
+
+Vault Bridges is bidirectional. Once your bridge is set up, the workflow is:
+
+**To get the latest changes from the remote repo:**
+Click the **⬇ Pull** button next to the bridge. The plugin runs `git pull` on the repo and re-copies the updated files into the vault.
+
+**To edit files and push changes back:**
+Edit files in Obsidian as you normally would. When you're ready to commit and push, click the **⬆ Push** button. The plugin copies your edits back to the repo, auto-commits with a timestamped message, and pushes to the remote.
 
 ---
 
@@ -99,4 +111,3 @@ If you see ❌ in the status bar, open **Settings → Vault Bridges** — the er
 - [Bridges Reference](bridges.md) — detailed explanation of every field and behavior
 - [Use Cases](use-cases.md) — common setups and real-world examples
 - [Troubleshooting](troubleshooting.md) — fixes for common problems
-- [Windows Setup](windows.md) — Windows-specific notes and junction points

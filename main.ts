@@ -29,6 +29,12 @@ export default class VaultBridgesPlugin extends Plugin {
 			callback: () => this.bridgeManager.rebuildAllLinks(),
 		});
 
+		this.addCommand({
+			id: 'push-all-bridges',
+			name: 'Push All Bridges',
+			callback: () => this.bridgeManager.pushAll(),
+		});
+
 		// Auto-sync on startup after layout is ready
 		this.app.workspace.onLayoutReady(() => {
 			this.bridgeManager.syncOnStartup();

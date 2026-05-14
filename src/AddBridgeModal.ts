@@ -59,7 +59,7 @@ export class AddBridgeModal extends Modal {
 
 		new Setting(contentEl)
 			.setName('Source subfolder')
-			.setDesc('Optional: subfolder within the repo to link (leave blank to link the whole repo)')
+			.setDesc('Optional: subfolder within the repo to copy (leave blank to copy the whole repo)')
 			.addText(text =>
 				text
 					.setPlaceholder('docs/adr')
@@ -69,7 +69,7 @@ export class AddBridgeModal extends Modal {
 
 		new Setting(contentEl)
 			.setName('Vault destination path')
-			.setDesc('Where to create the link inside your vault (relative path, e.g. "Work/ADRs")')
+			.setDesc('Where to copy files inside your vault (relative path, e.g. "Work/ADRs")')
 			.addText(text =>
 				text
 					.setPlaceholder('Work/ADRs')

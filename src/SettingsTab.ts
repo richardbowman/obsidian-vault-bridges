@@ -14,7 +14,7 @@ export class VaultBridgesSettingsTab extends PluginSettingTab {
 
 		containerEl.createEl('h2', { text: 'Vault Bridges' });
 		containerEl.createEl('p', {
-			text: 'Connect external Git repositories into your vault via symlinks. Each bridge pulls the latest from a local repo and creates a symlink at your chosen vault path.',
+			text: 'Connect external Git repositories into your vault. Each bridge pulls the latest from a local repo and copies the files to your chosen vault path so they are fully indexed.',
 			cls: 'vault-bridges-description',
 		});
 
@@ -60,7 +60,8 @@ export class VaultBridgesSettingsTab extends PluginSettingTab {
 				.setName('Bulk actions')
 				.addButton(btn =>
 					btn
-						.setButtonText('Sync All Now')
+						.setButtonText('Pull All')
+						.setTooltip('Pull all bridges: repo → vault')
 						.onClick(async () => {
 							await this.plugin.bridgeManager.syncAll();
 							this.display();
@@ -68,8 +69,17 @@ export class VaultBridgesSettingsTab extends PluginSettingTab {
 				)
 				.addButton(btn =>
 					btn
-						.setButtonText('Rebuild All Links')
-						.setTooltip('Tear down and recreate every symlink — useful after moving the vault')
+						.setButtonText('Push All')
+						.setTooltip('Push all bridges: vault → repo (commit + push)')
+						.onClick(async () => {
+							await this.plugin.bridgeManager.pushAll();
+							this.display();
+						})
+				)
+				.addButton(btn =>
+					btn
+						.setButtonText('Rebuild All Copies')
+						.setTooltip('Re-copy all bridge files into the vault — useful after moving the vault or if files get out of sync')
 						.onClick(async () => {
 							await this.plugin.bridgeManager.rebuildAllLinks();
 							this.display();
@@ -93,11 +103,20 @@ export class VaultBridgesSettingsTab extends PluginSettingTab {
 			setting
 				.addButton(btn =>
 					btn
-						.setIcon('refresh-cw')
-						.setTooltip('Sync this bridge')
+						.setIcon('arrow-down-circle')
+						.setTooltip('Pull: repo → vault')
 						.onClick(async () => {
 							await this.plugin.bridgeManager.syncBridge(bridge);
 							await this.plugin.saveSettings();
+							this.display();
+						})
+				)
+				.addButton(btn =>
+					btn
+						.setIcon('arrow-up-circle')
+						.setTooltip('Push: vault → repo (commit + push)')
+						.onClick(async () => {
+							await this.plugin.bridgeManager.pushBridge(bridge);
 							this.display();
 						})
 				)
@@ -112,7 +131,7 @@ export class VaultBridgesSettingsTab extends PluginSettingTab {
 				.addButton(btn =>
 					btn
 						.setIcon('trash')
-						.setTooltip('Remove bridge and delete symlink')
+						.setTooltip('Remove bridge and delete vault copy')
 						.setWarning()
 						.onClick(async () => {
 							await this.plugin.bridgeManager.removeLink(bridge);

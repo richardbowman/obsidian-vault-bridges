@@ -6,12 +6,23 @@ A **bridge** is the core concept in Vault Bridges. Each bridge represents a conn
 
 ## How a Bridge Works
 
-When you sync a bridge, the plugin does two things in order:
+A bridge supports two operations: **Pull** and **Push**.
 
-1. **Git pull** — runs `git pull origin <branch>` in the repo directory to fetch the latest changes
-2. **Symlink verify** — checks that the symlink at the vault destination exists and points to the correct source; creates or repairs it if not
+### Pull (repo → vault)
 
-The result is a symlink in your vault that always reflects the current state of the repo after the last pull.
+1. Runs `git pull origin <branch>` in the repo directory to fetch the latest changes from the remote
+2. Copies files from the source path in the repo into the vault destination using a recursive file copy — the `.git/` folder is excluded
+3. If a legacy symlink exists at the vault destination, it is removed first and replaced with real files
+
+The result is a set of real files in your vault that reflect the state of the repo after the last pull. These files are fully indexed by Obsidian — they appear in search, Quick Switcher, backlinks, and the graph view just like any other vault note.
+
+### Push (vault → repo)
+
+1. Copies files from the vault destination back to the source path in the repo
+2. Stages all changes with `git add -A`
+3. Checks `git status --porcelain` — if nothing changed, the commit and push are skipped
+4. Commits with an auto-generated message: `Update from Obsidian vault (<timestamp>)`
+5. Pushes to `origin <branch>`
 
 ---
 
@@ -31,33 +42,29 @@ The repo must already exist on disk. Vault Bridges does not clone repos from a U
 ```
 
 ### Source Subfolder
-Optional. A path relative to the repo root specifying which subfolder to link into the vault.
+Optional. A path relative to the repo root specifying which subfolder to copy into the vault.
 
-| Source Subfolder | What gets linked |
+| Source Subfolder | What gets copied |
 |---|---|
-| *(blank)* | The entire repo root |
+| *(blank)* | The entire repo root (excluding `.git/`) |
 | `docs` | The `docs/` folder only |
 | `docs/architecture/decisions` | A deeply nested subfolder |
 
-When blank, the entire repo root is linked. This means everything in the repo — including the `.git/` folder — is visible in Obsidian's file explorer (though `.git` files are filtered by Obsidian's excluded files setting).
-
-For most use cases, specifying a `docs` or `notes` subfolder is cleaner.
+For most use cases, specifying a `docs` or `notes` subfolder is cleaner than copying the entire repo root.
 
 ### Vault Destination Path
-The path inside your vault where the symlink will be created. This is relative to the vault root.
+The path inside your vault where the copied files will be placed. This is relative to the vault root.
 
 ```
-Work/Docs              ← creates a "Docs" folder inside "Work"
-References/Handbook    ← creates "Handbook" inside "References"
-ADRs                   ← creates "ADRs" at the vault root level
+Work/Docs              ← copies files into a "Docs" folder inside "Work"
+References/Handbook    ← copies files into "Handbook" inside "References"
+ADRs                   ← copies files into "ADRs" at the vault root level
 ```
 
 Parent folders are created automatically if they don't exist.
 
-> **Important:** Do not set this to an existing vault folder that already has content. The plugin will refuse to overwrite a non-symlink path.
-
 ### Branch
-The Git branch to pull from when syncing. Defaults to `main`.
+The Git branch to pull from and push to. Defaults to `main`.
 
 If your repo uses a different default branch (`master`, `develop`, `trunk`), set this accordingly per bridge.
 
@@ -74,10 +81,10 @@ Each bridge tracks its current state:
 
 | Status | Meaning |
 |---|---|
-| `ok` | Last sync completed without errors. Symlink is in place. |
-| `error` | Last sync failed. The error message is shown in settings. |
-| `syncing` | A sync operation is currently in progress. |
-| `unlinked` | The symlink has been removed (bridge removed from settings or `removeLink` was called). |
+| `ok` | Last sync completed without errors. |
+| `error` | Last sync or push failed. The error message is shown in settings. |
+| `syncing` | A sync or push operation is currently in progress. |
+| `unlinked` | The bridge destination has been removed (bridge was deleted from settings). |
 | `unknown` | Bridge was just added and has never been synced. |
 
 The `lastSynced` timestamp records the ISO timestamp of the most recent successful sync.
@@ -86,33 +93,48 @@ The `lastSynced` timestamp records the ISO timestamp of the most recent successf
 
 ## Sync Behavior
 
-### What "sync" does
+### What "sync" (pull) does
 
 For each bridge, sync:
 1. Checks the repo path exists and contains a `.git/` directory
 2. Runs `git pull origin <branch>` with a 30-second timeout
-3. Checks whether the symlink at the vault destination exists and points to the correct source
-4. Creates or repairs the symlink if needed
-5. Updates `status`, `lastSynced`, and `lastError`
+3. Copies files from the repo source path into the vault destination (`.git/` excluded)
+4. Updates `status`, `lastSynced`, and `lastError`
 
-### What sync does NOT do
+### What "push" does
 
-- It does not `git clone` a new repo — the repo must already exist
-- It does not push any changes back to the remote
-- It does not handle merge conflicts — if the pull results in a conflict, the error is surfaced and the bridge is marked as errored
-- It does not track changes you make in Obsidian back to Git — edits are written to the real files via the symlink, but committing and pushing is your responsibility
+1. Validates the branch name
+2. Checks the vault destination path exists
+3. Copies files from the vault destination back to the repo source path
+4. Stages all changes with `git add -A`
+5. Checks `git status --porcelain` — if nothing has changed, skips the commit and push
+6. Commits with the message `Update from Obsidian vault (<timestamp>)` and pushes to `origin <branch>`
 
-### Pull errors vs link errors
+### What bridges do NOT do
 
-If `git pull` fails (e.g. no network, merge conflict, authentication error), the sync is marked as errored. The symlink may still be in place from a previous sync, meaning you can still read and edit files — they just may not be up to date.
+- Clone repos from a URL — the repo must already exist on disk
+- Handle merge conflicts — if `git pull` results in a conflict, the error is surfaced and the bridge is marked as errored
+- Resolve conflicts between vault edits and repo changes — pull will overwrite the vault copy with repo state
 
-If the symlink is missing or broken but the pull succeeded, the plugin recreates it. These two steps are semi-independent.
+---
+
+## Editing Bridged Files
+
+Files at the vault destination are real copies, not symlinks. You can edit them directly in Obsidian like any other note.
+
+Workflow for making edits:
+
+1. Edit the file in your vault
+2. Hit **Push** to copy your changes back to the repo and commit them
+3. The next **Pull** will overwrite the vault copy with the repo's state — push first if you have unsaved edits you want to keep
+
+> **Important:** If you pull without pushing first, any vault edits that were not yet pushed will be overwritten by the incoming repo state.
 
 ---
 
 ## Managing Multiple Bridges
 
-There's no limit on the number of bridges. Each is synced independently and can have its own branch, subfolder, and auto-sync setting.
+There's no limit on the number of bridges. Each is synced and pushed independently and can have its own branch, subfolder, and auto-sync setting.
 
 **Recommended layout for multiple bridges:**
 
@@ -129,25 +151,13 @@ vault/
 
 ## Coexistence with Obsidian Git
 
-If your vault is itself a Git repo managed by [Obsidian Git](https://github.com/Vinzent03/obsidian-git), you should add your bridge destination paths to the vault's `.gitignore`. Otherwise, Obsidian Git will attempt to stage the symlink itself (as a file pointer), which is usually not what you want.
+If your vault is itself a Git repo managed by [Obsidian Git](https://github.com/Vinzent03/obsidian-git), add your bridge destination paths to the vault's `.gitignore`. This prevents Obsidian Git from staging and committing the copied files, which would double-track content that is already versioned in its own repo.
 
 Example `.gitignore` entry at your vault root:
+
 ```
-# Vault Bridges symlinks
-Work/Company Handbook
-Work/ADRs
-Open Source/Plugin Notes
+# Vault Bridges destinations
+Work/Company Handbook/
+Work/ADRs/
+Open Source/Plugin Notes/
 ```
-
----
-
-## Editing Bridged Files
-
-Because bridges use symlinks, any file you edit in Obsidian is edited **in-place in the original repo**. Changes are immediately reflected in the repo's working directory.
-
-This means:
-- You can use Obsidian to edit files in the repo (e.g. fix a typo in a doc)
-- You still need to commit and push from a terminal or another Git tool
-- There's no risk of losing changes to a "synced copy" — there is only one copy
-
-If you prefer read-only access, the simplest approach is to not edit the files, or to set up a `.gitignore` in the repo that excludes Obsidian-specific files (`.obsidian/`, `*.canvas`, etc.) if you ever accidentally commit from the vault side.

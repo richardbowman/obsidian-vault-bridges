@@ -19,13 +19,13 @@ Real-world examples of how to use Vault Bridges to connect external repos to you
 | Branch | `main` |
 | Auto sync | ✅ |
 
-**Result:** All your ADRs, runbooks, and developer docs appear inside Obsidian and can be linked from meeting notes, project plans, and other vault content. When a teammate pushes updated docs, a sync pulls them in.
+**Result:** All your ADRs, runbooks, and developer docs appear inside Obsidian and can be linked from meeting notes, project plans, and other vault content. When a teammate pushes updated docs, a Pull sync brings them in.
 
 ---
 
 ## Shared Team Knowledge Base
 
-**Scenario:** Your team maintains a shared `team-wiki` repo with markdown notes, onboarding docs, and process guides. You want it in your personal vault without keeping a separate copy.
+**Scenario:** Your team maintains a shared `team-wiki` repo with markdown notes, onboarding docs, and process guides. You want it in your personal vault and want to be able to contribute edits back.
 
 **Setup:**
 
@@ -33,12 +33,12 @@ Real-world examples of how to use Vault Bridges to connect external repos to you
 |---|---|
 | Name | `Team Wiki` |
 | Local repo path | `/Users/you/projects/team-wiki` |
-| Source subfolder | *(blank — link the whole repo)* |
+| Source subfolder | *(blank — copy the whole repo)* |
 | Vault destination | `Shared/Team Wiki` |
 | Branch | `main` |
 | Auto sync | ✅ |
 
-**Result:** The entire team wiki is accessible in your vault. You can read and edit it, then push updates from the terminal. Your teammates' changes show up the next time you sync.
+**Result:** The entire team wiki is accessible in your vault. You can read and edit it directly in Obsidian, then hit **Push** (⬆) to commit your changes and push them back to the shared repo. Your teammates' changes show up the next time you Pull.
 
 ---
 
@@ -117,9 +117,20 @@ Backlinks work from bridged files into your notes. If a doc in your repo links t
 
 ---
 
+## Editing Bridged Files
+
+Because bridged files are real copies in your vault, you can edit them directly in Obsidian. To send your edits back to the repo:
+
+1. Edit the file in Obsidian as normal
+2. Click the **Push** button (⬆) for the bridge in Settings → Vault Bridges, or use **Cmd+P → Push All Bridges**
+3. Vault Bridges copies your vault files back to the repo, commits the changes, and pushes to the remote
+
+**Important:** If you have vault edits and also want to pull in upstream changes, always **Push first, then Pull**. A Pull overwrites vault files with repo contents — unsaved vault edits will be lost if you Pull without Pushing first.
+
+---
+
 ## What Vault Bridges Is NOT For
 
 - **Syncing your vault to Git** — use [Obsidian Git](https://github.com/Vinzent03/obsidian-git) for that
 - **Cloning repos from a URL** — clone the repo yourself first; Vault Bridges connects to an existing local clone
-- **Bidirectional sync with conflict resolution** — it's a symlink, so edits go straight to the repo; you handle committing and pushing
-- **Mobile** — symlinks require desktop filesystem access
+- **Mobile** — file copying and git operations require desktop filesystem access
